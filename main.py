@@ -12,6 +12,7 @@ from phi.vectordb.pgvector import PgVector2
 
 
 def init_cudeschin(update=True):
+    """Download (and update) the Cudeschin aka the documents we want to RAG on."""
     cudeschin_path = Path("./cudeschin")
 
     if not cudeschin_path.exists():
@@ -23,23 +24,38 @@ def init_cudeschin(update=True):
 
 
 def init_knowledge_base(cudeschin_path: Path):
+    """
+    Set up and load the knowledge base. This is (arguably) the most important part of the whole application and defines
+    the R in RAG. The most common way is to use a vector database and embed chunks of the documents for a semantic
+    similarity search (akin to the traditional TF-IDF). Other options could be to do a (fuzzy) keyword search.
+    """
+    # TODO try a LangChain retriever, they have more options.
+    #   - Use a UnstructuredMarkdownLoader and MarkdownHeaderTextSplitter
+    #   - Try a TF-IDF retriever
+    # Chances are, if you aren't building an autonomous assistant (where phidata apparently shines),
+    # LangChain might just be the better option (mostly because of popularity) and you'll want to re-write it.
+
     knowledge_base = TextKnowledgeBase(
         path=cudeschin_path / "content/de",
         formats=[".md"],
         num_documents=3,
         vector_db=PgVector2(
             collection="cudeschin",
-            embedder=OllamaEmbedder(model="nomic-embed-text", dimensions=768),
+            # must use a german embedding model
+            embedder=OllamaEmbedder(model="jina/jina-embeddings-v2-base-de", dimensions=768),
             db_url="postgresql+psycopg://ai:asdf@localhost:5433/cudeschin",
         ),
     )
 
-    knowledge_base.load(recreate=False)
+    knowledge_base.load(recreate=True)
 
     return knowledge_base
 
 
 def init_assistant(cudeschin: AssistantKnowledge):
+    """
+    Set up the actual assistant with its model, templates and prompts.
+    """
     # Results are generally very sensitive to prompting, especially when working in a non-english language.
     # https://llama.meta.com/docs/model-cards-and-prompt-formats/llama3_1/
     # Also, something to be careful about (or it can get confusing) is the pre-configured system prompt from Ollama.
@@ -57,31 +73,56 @@ def init_assistant(cudeschin: AssistantKnowledge):
     #   (https://github.com/ollama/ollama/blob/main/docs/api.md#generate-a-chat-completion). This endpoint accepts
     #   messages from a conversation where each message has a role (system, assistant, user, tool). These messages
     #   are then formatted according to the prompt template in the modelfile.
-    # TODO custom modelfile with potentially better template, will have to see if it's actually true (then contribute).
+    # TODO try custom modelfile with potentially better template, will have to do some testing (then contribute?).
+    # TODO you could also do one of these from scratch without PhiData but so far I like the level of abstraction.
 
     return Assistant(
-        # TODO specify a low temperature, we don't want it to be creative at all.
-        # TODO fiddle around with the prompt, I don't think I like things like DSPy.
-        # TODO you could also do one of these from scratch without PhiData but so far I like the level of abstraction.
-        llm=Ollama(model="llama3.1:8b-instruct-q5_K_M"),  # model version heavily influences prompting style
+        llm=Ollama(
+            # TODO experiment with different model versions, quantizations and instruct vs chat.
+            model="llama3.1:8b-instruct-q5_K_M",  # model version heavily influences prompting style
+            options=dict(temperature=0.1),
+        ),
+        # TODO fiddle around with the prompts, I don't think I like things like DSPy.
         system_prompt=
-        "Du bist ein Schweizer Pfadi-Coach und unterstützst die Leitpersonen beim Planen und Durchführen"
-        "von Aktivitäten und Lagern indem du ihre Fragen faktisch beantwortest und Informationen der"
-        "J+S Brochuren verwendetst.\n"
+        "Du bist ein Schweizer Pfadi-Coach und unterstützst die Leitpersonen beim Planen und Durchführen "
+        "von Aktivitäten und Lagern indem du ihre Fragen zur Pfadi faktisch beantwortest und "
+        "dafür mitgelieferte Informationen zur Pfadi und Jungend und Sport (J+S) verwendetst.\n"
         "<instructions>\n"
-        "1. Antworte immer auf Deutsch.\n"
-        "2. Verwende ausschliesslich Informationen aus dem Kontext, wenn möglich in Form von Zitaten. "
-        "Referenziere genau, welche Informationen von wo verwendet wurden.\n"
+        "1. Beantworte die Fragen immer auf Deutsch.\n"
+        "2. Beantworte die Fragen, indem du Inhalte aus der mitgelieferten knowledge_base zitierst oder umschreibst. "
+        "Nutze dazu das `content` Feld der knowledge_base-Einträge. Gib jeweils an von welcher Datei die Informationen "
+        "stammen (Feld `name`). SCHREIBE NICHTS ÜBER DIE STRUKTUR DER KNOWLEDGE_BASE, VERWENDE SIE NUR!\n"
+        # "3. Die mitgelieferten Informationen enthalten meistens Links zu weiterführenden Informationen, "
+        # "erwähne diese jeweils am Ende der Antwort.\n"
         "3. Formatiere deine Antwort mithilfe von Markdown.\n"
         "</instructions>",
-        # TODO tune user prompt to include references. also don't forget, it's an instruction model.
-        user_prompt_template=PromptTemplate(template="Beantworte der Leitperson die folgende Frage"
-                                                     "über die Pfadi mithilfe des Kontexts unterhalb: {message}"),
+        user_prompt_template=PromptTemplate(template="Beantworte folgende Frage zur Pfadi mithilfe der Informationen "
+                                                     "aus der strukturierten knowledge_base unterhalb: {message}\n\n"
+                                                     "<knowledge_base>\n{references}\n</knowledge_base>"),
         knowledge_base=cudeschin,
-        add_references_to_prompt=True,  # force references
+        # TODO try a version where the model has to use function calls to query the knowledge base. I suspect
+        # the results will be worse for small models but better for large models (that can write good queries).
+        add_references_to_prompt=True,  # force references and always query the knowledge base
+        # these are all False by default btw, I just want to be explicit about it with reasons why.
+        add_chat_history_to_prompt=False,  # sends all the messages to the chat endpoint to simulate a continued
+        # conversation, BUT it also adds an extra (english) prompt with all previous messages, there doesn't seem to
+        # be a way to separate those but not sure, would have to dig deeper.
         markdown=False,  # avoid extra (english) prompt specifying to write in Markdown
+        create_memories=False,  # no need to store history atm
         debug=True,
+        save_output_to_file="./output.md",
     )
+
+
+def clean_user_prompt(prompt: str) -> str:
+    """
+    Clean the user prompt before sending it further. Can be used for various things BUT THIS IS A HACK!
+    I would generally advise against things like this and to instead focus on other parts but then again trying to
+    get an LLM to do what you want is inherently hacky af.
+    """
+    return (prompt.replace("LS", "Lagersport (LS)").
+            replace("LA", "Lageraktivität (LA)").
+            replace("LP", "Lagerprogramm (LP)"))
 
 
 if __name__ == '__main__':
@@ -91,4 +132,6 @@ if __name__ == '__main__':
     cudeschin = init_knowledge_base(cudeschin_path)
     assistant = init_assistant(cudeschin)
 
-    assistant.print_response("Auf was muss ich beim Planen eines LS-Blocks achten?")
+    question = clean_user_prompt("Auf was muss ich beim Planen eines LS-Blocks achten?")
+
+    assistant.print_response(question)
