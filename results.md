@@ -3,6 +3,24 @@
 This document contains some sample results of specific versions and is a way to track the performance
 for doing adjustments later. Not all results, especially those in the beginning, were tracked.
 
+## 73ae0992b9b4 (reverted)
+
+### Changes since last version
+
+- Switched from embedding-simliarity retrieval (vector store) to TF-IDF-similarity retrieval
+- Retrieval performs significantly worse, so discard/revert it
+
+### Examples
+
+```markdown
+Beim Planen eines J+S Lagersport (LS)-Blocks solltest du auf die folgenden Aspekte achten:
+
+- Die Aktivitäten im LS-Block sind Teil der J+S-Aktivitäten, die sich in Lagersport (LS) und Lageraktivitäten (LA) unterteilen.
+- Im Gegensatz zu den LA-Aktivitäten, die eher auf soziale Aspekte abzielen, konzentrieren sich LS-Aktivitäten auf sportliche und körperliche Herausforderungen.
+
+Um einen erfolgreichen LS-Block zu planen, solltest du also sicherstellen, dass die Aktivitäten im Einklang mit den Zielen des J+S-Programms stehen und eine angemessene Balance zwischen Sport und Spaß bieten.
+```
+
 ## 930819109e82
 
 ### Changes since last version
