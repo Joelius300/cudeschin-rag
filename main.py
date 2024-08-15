@@ -2,13 +2,11 @@ import logging
 from pathlib import Path
 
 from git import Repo
+from langchain_community.retrievers import TFIDFRetriever
 from phi.assistant import Assistant
-from phi.embedder.ollama import OllamaEmbedder
 from phi.knowledge import AssistantKnowledge
-from phi.knowledge.text import TextKnowledgeBase
 from phi.llm.ollama import Ollama
 from phi.prompt import PromptTemplate
-from phi.vectordb.pgvector import PgVector2
 
 
 def init_cudeschin(update=True):
@@ -23,19 +21,18 @@ def init_cudeschin(update=True):
     return cudeschin_path
 
 
-def init_knowledge_base(cudeschin_path: Path) -> AssistantKnowledge:
+def init_knowledge_base(cudeschin_path: Path, n_documents=3) -> AssistantKnowledge:
     """
     Set up and load the knowledge base. This is (arguably) the most important part of the whole application and defines
     the R in RAG. The most common way is to use a vector database and embed chunks of the documents for a semantic
-    similarity search (akin to the traditional TF-IDF). Other options could be to do a (fuzzy) keyword search.
+    similarity search (akin to the traditional TF-IDF). Other options could include to do a (fuzzy) keyword search.
     """
     # TODO try a LangChain retriever, they have more options.
-    #   - Use a UnstructuredMarkdownLoader and MarkdownHeaderTextSplitter
     #   - Try a TF-IDF retriever
     # Chances are, if you aren't building an autonomous assistant (where phidata apparently shines),
     # LangChain might just be the better option (mostly because of popularity) and you'll want to re-write it.
 
-    from langchain.text_splitter import MarkdownHeaderTextSplitter, MarkdownTextSplitter
+    from langchain.text_splitter import MarkdownHeaderTextSplitter
     from langchain_community.document_loaders import TextLoader
     from langchain_community.embeddings import OllamaEmbeddings
     from langchain_community.document_loaders import DirectoryLoader
@@ -48,6 +45,7 @@ def init_knowledge_base(cudeschin_path: Path) -> AssistantKnowledge:
 
     # doesn't derive from TextSplitter -> no split_documents so manual aggregation necessary
     splitter = MarkdownHeaderTextSplitter(
+        # cudeschin only contains these two header types
         headers_to_split_on=[("###", "Ueberschrift"), ("####", "Unterkapitel")], strip_headers=False)
     o_docs = loader.load()
     docs = []
@@ -64,11 +62,10 @@ def init_knowledge_base(cudeschin_path: Path) -> AssistantKnowledge:
     embeddings = OllamaEmbeddings(model="jina/jina-embeddings-v2-base-de")
     store = InMemoryVectorStore.from_documents(docs, embeddings)
 
-    n_docs = 3
-    retriever = store.as_retriever(search_kwargs=dict(k=n_docs))
+    retriever = store.as_retriever(search_kwargs=dict(k=n_documents))
 
     # passing num_documents here literally only changes the log message
-    return LangChainKnowledgeBase(retriever=retriever, num_documents=n_docs)
+    return LangChainKnowledgeBase(retriever=retriever, num_documents=n_documents)
 
 
 def init_assistant(cudeschin: AssistantKnowledge):
@@ -109,11 +106,12 @@ def init_assistant(cudeschin: AssistantKnowledge):
         "<instructions>\n"
         "1. Beantworte die Fragen immer auf Deutsch.\n"
         "2. Beantworte die Fragen, indem du Inhalte aus der mitgelieferten knowledge_base zitierst oder umschreibst. "
-        "Nutze dazu das Feld `content` der knowledge_base-Einträge. Gib jeweils an von welcher Datei die Informationen "
+        "Nutze dazu das Feld `content` der knowledge_base-Einträge.\n"
+        "3. Gib jeweils an von welcher Datei die Informationen "
         "stammen (Feld `meta_data.source`). SCHREIBE NICHTS ÜBER DIE STRUKTUR DER KNOWLEDGE_BASE, VERWENDE SIE NUR!\n"
         # "3. Die mitgelieferten Informationen enthalten meistens Links zu weiterführenden Informationen, "
         # "erwähne diese jeweils am Ende der Antwort.\n"
-        "3. Formatiere deine Antwort mithilfe von Markdown.\n"
+        "4. Formatiere deine Antwort mithilfe von Markdown.\n"
         "</instructions>",
         user_prompt_template=PromptTemplate(template="Beantworte folgende Frage zur Pfadi mithilfe der Informationen "
                                                      "aus der strukturierten knowledge_base unterhalb: {message}\n\n"
@@ -139,9 +137,9 @@ def clean_user_prompt(prompt: str) -> str:
     I would generally advise against things like this and to instead focus on other parts but then again trying to
     get an LLM to do what you want is inherently hacky af.
     """
-    return (prompt.replace("LS", "Lagersport (LS)").
-            replace("LA", "Lageraktivität (LA)").
-            replace("LP", "Lagerprogramm (LP)"))
+    return (prompt.replace("LS", "J+S Lagersport (LS)").
+            replace("LA", "J+S Lageraktivität (LA)").
+            replace("LP", "J+S Lagerprogramm (LP)"))
 
 
 if __name__ == '__main__':
