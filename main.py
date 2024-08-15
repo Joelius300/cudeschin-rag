@@ -1,10 +1,15 @@
 import logging
 from pathlib import Path
+from typing import Optional, List
 
 from git import Repo
 from langchain_community.retrievers import TFIDFRetriever
+from langchain_core.documents import Document as LangChainDocument
+from langchain_core.retrievers import BaseRetriever
 from phi.assistant import Assistant
+from phi.document import Document
 from phi.knowledge import AssistantKnowledge
+from phi.knowledge.langchain import LangChainKnowledgeBase
 from phi.llm.ollama import Ollama
 from phi.prompt import PromptTemplate
 
@@ -21,23 +26,38 @@ def init_cudeschin(update=True):
     return cudeschin_path
 
 
+class LessPickyLangChainKnowledgeBase(LangChainKnowledgeBase):
+    def search(self, query: str, num_documents: Optional[int] = None) -> List[LangChainDocument]:
+        if self.retriever is None:
+            raise ValueError("must provide retriever")
+
+        if not isinstance(self.retriever, BaseRetriever):  # no reason for VectorStoreRetriever
+            raise ValueError(f"Retriever is not of type BaseRetriever: {self.retriever}")
+
+        _num_documents = num_documents or self.num_documents
+        # logger.debug(f"Getting {_num_documents} relevant documents for query: {query}")
+        lc_documents: List[LangChainDocument] = self.retriever.invoke(input=query)
+        documents = []
+        for lc_doc in lc_documents:
+            documents.append(
+                Document(
+                    content=lc_doc.page_content,
+                    meta_data=lc_doc.metadata,
+                )
+            )
+
+        return documents
+
+
 def init_knowledge_base(cudeschin_path: Path, n_documents=3) -> AssistantKnowledge:
     """
     Set up and load the knowledge base. This is (arguably) the most important part of the whole application and defines
     the R in RAG. The most common way is to use a vector database and embed chunks of the documents for a semantic
     similarity search (akin to the traditional TF-IDF). Other options could include to do a (fuzzy) keyword search.
     """
-    # TODO try a LangChain retriever, they have more options.
-    #   - Try a TF-IDF retriever
-    # Chances are, if you aren't building an autonomous assistant (where phidata apparently shines),
-    # LangChain might just be the better option (mostly because of popularity) and you'll want to re-write it.
-
     from langchain.text_splitter import MarkdownHeaderTextSplitter
     from langchain_community.document_loaders import TextLoader
-    from langchain_community.embeddings import OllamaEmbeddings
     from langchain_community.document_loaders import DirectoryLoader
-    from langchain_core.vectorstores import InMemoryVectorStore
-    from phi.knowledge.langchain import LangChainKnowledgeBase
 
     loader = DirectoryLoader(cudeschin_path / "content/de", glob="**/*.md",
                              loader_cls=TextLoader,
@@ -59,13 +79,10 @@ def init_knowledge_base(cudeschin_path: Path, n_documents=3) -> AssistantKnowled
     # splitter = MarkdownTextSplitter(is_separator_regex=True)
     # docs = splitter.split_documents(loader.load())
 
-    embeddings = OllamaEmbeddings(model="jina/jina-embeddings-v2-base-de")
-    store = InMemoryVectorStore.from_documents(docs, embeddings)
-
-    retriever = store.as_retriever(search_kwargs=dict(k=n_documents))
+    retriever = TFIDFRetriever.from_documents(docs, k=n_documents)
 
     # passing num_documents here literally only changes the log message
-    return LangChainKnowledgeBase(retriever=retriever, num_documents=n_documents)
+    return LessPickyLangChainKnowledgeBase(retriever=retriever, num_documents=n_documents)
 
 
 def init_assistant(cudeschin: AssistantKnowledge):
