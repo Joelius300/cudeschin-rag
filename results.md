@@ -3,6 +3,111 @@
 This document contains some sample results of specific versions and is a way to track the performance
 for doing adjustments later. Not all results, especially those in the beginning, were tracked.
 
+## 94b0c680e3ec
+
+- Model: llama3.1:8b-instruct-q5_K_M
+- Temperature: 0.1
+- Chunking: Markdown header based
+- Retrieval: Semantic similarity with in-memory vector store
+- Embedder: jina/jina-embeddings-v2-base-de
+
+### Changes since last version
+
+- Switched to LangChain retrieval, still using phidata for rest
+- In-memory vector store instead of pgvector
+- Different splitting method (markdown header based)
+
+### Works well
+
+- Answers in German only
+- Fast and fully offline
+- Fairly deterministic and reliable despite small model
+- Cites real links from retrieved context
+- Retrieved chunks are more relevant and sizable
+- Answers correctly based on context
+- Cites sources for retrieval
+
+### Problems
+
+- Still fetches some irrelevant chunks and misses some relevant ones
+- Answer misses some details because of missing context
+- Links to local file sources with http
+- Slower than last version because of in-memory vector store
+
+### Examples (non-cherry-picked)
+
+Query:
+```markdown
+Auf was muss ich beim Planen eines LS-Blocks achten?
+```
+
+```markdown
+**Achtung beim Planen eines Lagersport (LS)-Blocks**
+=====================================================
+
+Beim Planen eines Lagersport-Blocks solltest du auf folgende Aspekte achten:
+
+*   **Rahmenbedingungen klären**: Stelle sicher, dass alle notwendigen Informationen für die Planung vorliegen. Dazu gehören:
+    *   Ort der Aktivität
+    *   Art der Aktivität (z.B. Wanderung, Ballspiel)
+    *   Teilnehmende (Anzahl, Alter, Wissen, Bedürfnisse, Interessen...)
+    *   Anzahl und Qualifikation der Leitenden
+    *   Zeitrahmen
+    *   Jahreszeit/Wetterbedingungen
+    *   Finanzielle Mittel
+    *   Verfügbares Material
+    *   Weitere Vorgaben oder Einschränkungen
+
+Diese Informationen sind entscheidend, um sicherzustellen, dass die Aktivität altersgerecht und sicher durchgeführt werden kann.
+
+**Ziel des Lagersports**
+------------------------
+
+Der Lagersport soll Freude an der Bewegung, Erlebnisse in der Gruppe und Abwechslung bieten. Dies kann mit einfachen Mitteln umgesetzt werden und findet oft in der Natur statt. Aktivitäten können im Bereich Unterwegs sein (z.B. Wanderungen), Sport (z.B. Ballspiele) oder Spiel (z.B. Geländespiele) liegen.
+
+Quellen:
+
+*   cudeschin/content/de/01_Aktivitaet_planen.md
+*   cudeschin/content/de/03_Aktivitaet_LST.md
+```
+
+```markdown
+**Achtung beim Planen eines Lagersport (LS)-Blocks**
+=====================================================
+
+Beim Planen eines Lagersport-Blocks solltest du auf folgende Aspekte achten:
+
+*   **Rahmenbedingungen klären**: Stelle sicher, dass du alle notwendigen Informationen hast, bevor du mit der Planung beginnst. Dazu gehören:
+    *   Der Ort, an dem die Aktivität stattfinden soll
+    *   Die Art der Aktivität, die geplant wird
+    *   Die Teilnehmenden (Anzahl, Alter, Wissen, Bedürfnisse, Interessen...)
+    *   Die Anzahl der Leitenden
+    *   Die verfügbare Zeit
+    *   Die Jahreszeit oder das Wetter, in dem die Aktivität stattfinden soll
+    *   Die finanziellen Mittel, die zur Verfügung stehen
+    *   Das verfügbare Material
+    *   Mögliche Vorgaben oder Einschränkungen
+
+Diese Informationen sind wichtig, um sicherzustellen, dass deine Planung realistisch und sicher ist.
+
+**Ziel des Lagersports**
+------------------------
+
+Der Lagersport soll altersgerechte, vielfältige und abwechslungsreiche Spiel- und Sportaktivitäten bieten. Dazu gehören:
+
+*   Freude an der vielfältigen Bewegung
+*   Erlebnis in der Gruppe
+*   Oft mit einfachen Mitteln umgesetzt
+*   Finden typischerweise in der Natur statt
+
+Die Aktivitäten sollten in den Bereichen Unterwegs sein, Sport und Spiel stattfinden.
+
+Quellen:
+
+*   [cudeschin/content/de/03_Aktivitaet_LST.md](https://cudeschin/content/de/03_Aktivitaet_LST.md)
+*   [cudeschin/content/de/01_Aktivitaet_planen.md](https://cudeschin/content/de/01_Aktivitaet_planen.md)
+```
+
 ## d3d837422899
 
 - Model: llama3.1:8b-instruct-q5_K_M
@@ -80,3 +185,4 @@ Beim Planen eines LS-Blocks ist es wichtig, auf verschiedene Aspekte zu achten. 
 *   Beachten Sie auch die Sicherheitshinweise im [Merkblatt LS/T 3x3 "Unterwegs sein"](https://www.jugendundsport.ch/content/jus-internet/de/sportarten/lagersport-trekking-uebersicht/_jcr_content/contentPar/tabs_copy_copy/items/dokumente/tabPar/downloadlist_copy/downloadItems/97_1494506483240.download/merkblatt_ls_t_3x3_unterwegs_sein_d.pdf).
 *   Überprüfen Sie auch die [J+S-Broschüre "LS/T - Spiel und Sport"](https://www.jugendundsport.ch/de/sportarten/lagersport-trekking-uebersicht/login-experten.html) für weitere Ideen und Tipps.
 ```
+
