@@ -3,6 +3,96 @@
 This document contains some sample results of specific versions and is a way to track the performance
 for doing adjustments later. Not all results, especially those in the beginning, were tracked.
 
+## 930819109e82
+
+### Changes since last version
+
+- Made sure to include "J+S" in the search prompt when querying about LA, LS or LP
+
+### Works well
+
+- Answers in German only
+- Fast and fully offline
+- Fairly deterministic and reliable despite small model
+- Cites real links from retrieved context
+- Retrieved chunks are relevant and sizable
+- Answers correctly based on context
+- Cites sources for retrieval
+
+### Problems
+
+- Links to local file sources with http
+- Relies on hacky prompt tricks for specific questions
+- Slow start-up because of in-memory vector store
+
+### Examples
+
+Query:
+```markdown
+Auf was muss ich beim Planen eines LS-Blocks achten?
+```
+
+```markdown
+### Achtung beim Planen eines J+S Lagersport (LS)-Blocks
+#### Rahmenbedingungen beachten
+Beim Planen eines J+S Lagersport-Blocks müssen die folgenden Rahmenbedingungen berücksichtigt werden:
+* Die Aktivität sollte mindestens 30 Minuten dauern.
+* Sie sollte verteilt auf mindestens zwei Tageszeiten (Morgen, Mittag, Abend) sein.
+* Insgesamt sollten pro Lagertag mindestens vier Stunden und maximal zwei Stunden als Lageraktivität veranschlagt werden.
+
+#### Ziele des Lagersports
+Der Lagersport soll altersgerechte, vielfältige und abwechslungsreiche Spiel- und Sportaktivitäten bieten. Dazu gehören:
+* Freude an der vielfältigen Bewegung
+* Erlebnis in der Gruppe
+* Oft mit einfachen Mitteln umgesetzt
+* Finden typischerweise in der Natur statt
+
+#### Aktivitätsbereiche
+Der Lagersport umfasst Aktivitäten in den Bereichen:
+* Unterwegs sein (z.B. Wanderungen, Schneeschuhtouren)
+* Sport (z.B. Ballspiele, Trendsportarten)
+* Spiel (z.B. Spielturniere, Geländespiele)
+
+Quelle: [cudeschin/content/de/03_Aktivitaet_LST.md](http://cudeschin/content/de/03_Aktivitaet_LST.md)
+```
+
+```markdown
+**Achtung beim Planen eines J+S Lagersport (LS)-Blocks**
+=====================================================
+
+Beim Planen eines J+S Lagersport (LS)-Blocks sollten Sie folgende Punkte beachten:
+
+*   Die Aktivitäten sollten altersgerecht, vielfältig und abwechslungsreich sein.
+*   Es sollte Freude an der Bewegung entstehen, insbesondere an vielfältigen Bewegungsgrundformen für Kinder.
+*   Die Aktivitäten sollten oft in der Natur stattfinden.
+*   Sie können in den Bereichen Unterwegs sein (z.B. Wanderungen), Sport (z.B. Ballspiele) und Spiel (z.B. Geländespiele) liegen.
+
+**Rahmenbedingungen**
+-------------------
+
+Beachten Sie auch die Rahmenbedingungen für J+S-Aktivitäten:
+
+*   Pro Lagertag sollten mindestens vier Stunden, maximal zwei Stunden davon als Lageraktivität, verteilt auf mindestens zwei Tageszeiten (Morgen, Mittag, Abend), verbleiben.
+*   Die Dauer jeder Aktivität sollte mindestens 30 Minuten betragen.
+
+Quelle: cudeschin/content/de/03_Aktivitaet_LST.md
+```
+
+```markdown
+**Achtung beim Planen eines J+S Lagersport (LS)-Blocks**
+=====================================================
+
+Beim Planen eines J+S Lagersport (LS)-Blocks sollten Sie folgende Punkte beachten:
+
+*   Die Aktivität sollte mindestens 30 Minuten dauern.
+*   Der Block sollte altersgerecht, vielfältig und abwechslungsreich sein und Freude an der Bewegung vermitteln.
+*   Die Aktivität sollte oft in der Natur stattfinden und mit einfachen Mitteln umgesetzt werden.
+
+Es ist auch wichtig zu beachten, dass Lagersport-Aktivitäten im Rahmen eines J+S-Lagers Teil einer größeren Struktur sind. Daher sollten Sie sicherstellen, dass die Aktivität gut in den Gesamtplan des Lagers passt und die erforderlichen Rahmenbedingungen erfüllt.
+
+Quelle: [cudeschin/content/de/03_Aktivitaet_LST.md](cudeschin/content/de/03_Aktivitaet_LST.md)
+```
+
 ## 94b0c680e3ec
 
 - Model: llama3.1:8b-instruct-q5_K_M
