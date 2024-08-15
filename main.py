@@ -23,7 +23,7 @@ def init_cudeschin(update=True):
     return cudeschin_path
 
 
-def init_knowledge_base(cudeschin_path: Path):
+def init_knowledge_base(cudeschin_path: Path) -> AssistantKnowledge:
     """
     Set up and load the knowledge base. This is (arguably) the most important part of the whole application and defines
     the R in RAG. The most common way is to use a vector database and embed chunks of the documents for a semantic
@@ -35,21 +35,40 @@ def init_knowledge_base(cudeschin_path: Path):
     # Chances are, if you aren't building an autonomous assistant (where phidata apparently shines),
     # LangChain might just be the better option (mostly because of popularity) and you'll want to re-write it.
 
-    knowledge_base = TextKnowledgeBase(
-        path=cudeschin_path / "content/de",
-        formats=[".md"],
-        num_documents=3,
-        vector_db=PgVector2(
-            collection="cudeschin",
-            # must use a german embedding model
-            embedder=OllamaEmbedder(model="jina/jina-embeddings-v2-base-de", dimensions=768),
-            db_url="postgresql+psycopg://ai:asdf@localhost:5433/cudeschin",
-        ),
-    )
+    from langchain.text_splitter import MarkdownHeaderTextSplitter, MarkdownTextSplitter
+    from langchain_community.document_loaders import TextLoader
+    from langchain_community.embeddings import OllamaEmbeddings
+    from langchain_community.document_loaders import DirectoryLoader
+    from langchain_core.vectorstores import InMemoryVectorStore
+    from phi.knowledge.langchain import LangChainKnowledgeBase
 
-    knowledge_base.load(recreate=True)
+    loader = DirectoryLoader(cudeschin_path / "content/de", glob="**/*.md",
+                             loader_cls=TextLoader,
+                             loader_kwargs=dict(encoding="utf-8"))
 
-    return knowledge_base
+    # doesn't derive from TextSplitter -> no split_documents so manual aggregation necessary
+    splitter = MarkdownHeaderTextSplitter(
+        headers_to_split_on=[("###", "Ueberschrift"), ("####", "Unterkapitel")], strip_headers=False)
+    o_docs = loader.load()
+    docs = []
+    for o_doc in o_docs:
+        chunks = splitter.split_text(o_doc.page_content)
+        for chunk in chunks:
+            chunk.metadata.update(o_doc.metadata)
+        docs.extend(chunks)
+
+    # splits on all headers and always keeps them. Derives from TextSplitter. Doesn't set is_separator_regex even though it should?
+    # splitter = MarkdownTextSplitter(is_separator_regex=True)
+    # docs = splitter.split_documents(loader.load())
+
+    embeddings = OllamaEmbeddings(model="jina/jina-embeddings-v2-base-de")
+    store = InMemoryVectorStore.from_documents(docs, embeddings)
+
+    n_docs = 3
+    retriever = store.as_retriever(search_kwargs=dict(k=n_docs))
+
+    # passing num_documents here literally only changes the log message
+    return LangChainKnowledgeBase(retriever=retriever, num_documents=n_docs)
 
 
 def init_assistant(cudeschin: AssistantKnowledge):
@@ -90,8 +109,8 @@ def init_assistant(cudeschin: AssistantKnowledge):
         "<instructions>\n"
         "1. Beantworte die Fragen immer auf Deutsch.\n"
         "2. Beantworte die Fragen, indem du Inhalte aus der mitgelieferten knowledge_base zitierst oder umschreibst. "
-        "Nutze dazu das `content` Feld der knowledge_base-Einträge. Gib jeweils an von welcher Datei die Informationen "
-        "stammen (Feld `name`). SCHREIBE NICHTS ÜBER DIE STRUKTUR DER KNOWLEDGE_BASE, VERWENDE SIE NUR!\n"
+        "Nutze dazu das Feld `content` der knowledge_base-Einträge. Gib jeweils an von welcher Datei die Informationen "
+        "stammen (Feld `meta_data.source`). SCHREIBE NICHTS ÜBER DIE STRUKTUR DER KNOWLEDGE_BASE, VERWENDE SIE NUR!\n"
         # "3. Die mitgelieferten Informationen enthalten meistens Links zu weiterführenden Informationen, "
         # "erwähne diese jeweils am Ende der Antwort.\n"
         "3. Formatiere deine Antwort mithilfe von Markdown.\n"
