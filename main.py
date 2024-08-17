@@ -24,7 +24,7 @@ def init_knowledge_base(cudeschin_path: Path, n_documents=3) -> AssistantKnowled
     """
     Set up and load the knowledge base. This is (arguably) the most important part of the whole application and defines
     the R in RAG. The most common way is to use a vector database and embed chunks of the documents for a semantic
-    similarity search (akin to the traditional TF-IDF). Other options could include to do a (fuzzy) keyword search.
+    similarity search (akin to the traditional TF-IDF). Other options could include a (fuzzy) keyword search.
     """
     from langchain.text_splitter import MarkdownHeaderTextSplitter
     from langchain_community.document_loaders import TextLoader
@@ -53,7 +53,7 @@ def init_knowledge_base(cudeschin_path: Path, n_documents=3) -> AssistantKnowled
     # splitter = MarkdownTextSplitter(is_separator_regex=True)
     # docs = splitter.split_documents(loader.load())
 
-    embeddings = OllamaEmbeddings(model="jina/jina-embeddings-v2-base-de")
+    embeddings = OllamaEmbeddings(model="jina/jina-embeddings-v2-base-de")  # make sure to use german embedding
     store = InMemoryVectorStore.from_documents(docs, embeddings)
 
     retriever = store.as_retriever(search_kwargs=dict(k=n_documents))
@@ -76,21 +76,20 @@ def init_assistant(cudeschin: AssistantKnowledge):
     #   the specs above, but if you include any mention of tools, it will write an english prompt saying "you're able
     #   to use tools", which might not be what you want. Another thing that confuses me is that there is no
     #   <|begin_of_text|> tag despite the specs saying you need one AND there is an unconditional <|eot_id|> tag, even
-    #   if there's no user message. It seems to work still but idk, I kinda suspect that's an error and the eot tag is
-    #   just a workaround to get the model to generate anything after forgetting the begin_of_text? Must try with
-    #   custom modelfile.
+    #   if there's no user message. This might be an error but after some testing, it seems to perform the same as
+    #   formatting it according to the specs (see custom modelfile in file tree).
     # - when using phidata, it will use the ollama-python library, which will use the /api/chat endpoint
     #   (https://github.com/ollama/ollama/blob/main/docs/api.md#generate-a-chat-completion). This endpoint accepts
     #   messages from a conversation where each message has a role (system, assistant, user, tool). These messages
     #   are then formatted according to the prompt template in the modelfile.
-    # TODO try custom modelfile with potentially better template, will have to do some testing (then contribute?).
     # TODO you could also do one of these from scratch without PhiData but so far I like the level of abstraction.
-
     return Assistant(
         llm=Ollama(
             # TODO experiment with different model versions, quantizations and instruct vs chat.
-            model="llama3.1:8b-instruct-q5_K_M",  # model version heavily influences prompting style
-            options=dict(temperature=0.1),
+            # model version heavily influences prompting style
+            model="llama3.1:8b-instruct-q5_K_M",
+            # model="llama3.1-instruct-custom",  # seemingly no difference in performance
+            options=dict(temperature=0.1),  # TODO experiment with different temperature settings
         ),
         # TODO fiddle around with the prompts, I don't think I like things like DSPy.
         system_prompt=
